@@ -1,21 +1,70 @@
-const jwt = require("jsonwebtoken");
-const { JWT_USER_PASSWORD } = require("../config");
+const {Router} = require("express");
+const {usermodel,purchasemodel} = require("../db");
+const userRouter = Router();
+const jwt  = require("jsonwebtoken");
+const {JWT_USER_PASSWORD} = require("./config")
 
-function userMiddleware(req, res, next) {
-  const token = req.headers.token;
+userRouter.post('/signup', async(req, res) => {
+    const {email , password , firstName , lastName} = req.body;
 
-  const decoded = jwt.verify(token,JWT_USER_PASSWORD)
+    await usermodel.create({
+        email:email,
+        password:password,
+        firstName:firstName,
+        lastName:lastName
+    }) 
+    res.json({
+        message:"Signup succeeded!"
+    })
 
-   if(decoded){
-    
-    req.user_id = decoded.id;
-    next()
-   }else{
-    res.status(4003).json({message:"Authenticated failed"})
-   }
-   
-}
 
-module.exports = {
-  userMiddleware:userMiddleware
-};
+  })
+
+
+
+  userRouter.post('/signin', async (req, res) => {
+    const { email, password } = req.body;
+  
+    const user = await usermodel.findOne({ email, password });
+  
+    if (!user) {
+      return res.json({
+        message: "Incorrect credentials"
+      });
+    }
+  
+    const token = jwt.sign({ id: user._id}, JWT_USER_PASSWORD);
+    res.json({ token });
+  });
+
+
+
+
+  userRouter.post('/purchases', userMiddleware, async(req, res) => {
+
+
+    const purchases = await purchasemodel.find({
+      userId,
+  });
+
+  let purchasedCourseIds = [];
+
+  for (let i = 0; i<purchases.length;i++){ 
+      purchasedCourseIds.push(purchases[i].courseId)
+  }
+
+  const coursesData = await coursemodel.find({
+      _id: { $in: purchasedCourseIds }
+  })
+
+  res.json({
+      purchases,
+      coursesData
+  })
+
+  })
+
+
+  module.exports = {
+    userRouter:userRouter
+  }
